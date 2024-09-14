@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ActivityViewSet, record_activity_api, signup, user_profile
+from .views import ActivityViewSet, record_activity_api,get_audio_files_for_date,delete_audio_file,signup, user_profile
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 router = DefaultRouter()
@@ -13,5 +13,7 @@ urlpatterns = [
     path('api/signup/', signup, name='signup'),
     path('api/profile/', user_profile, name='user_profile'),
     path('api/record/',record_activity_api, name='record_activity_api'),
+    path('api/audio/date/<str:date>/',get_audio_files_for_date, name='get_audio_files_for_date'),
+    path('api/audio/delete/',delete_audio_file, name='delete_audio_file'),
 
 ]

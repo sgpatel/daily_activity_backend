@@ -130,6 +130,26 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',  # React frontend
 ]
+#Test
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS',
+]
+
+CORS_ALLOW_HEADERS = [
+    'content-type',
+    'authorization',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -164,6 +184,7 @@ LOGGING = {
         },
     },
 }
+
 
 #Uncomment if you want to limit the audio file size
 #DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB

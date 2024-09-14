@@ -4,7 +4,7 @@ from io import BytesIO
 import logging
 import os
 from rest_framework import viewsets
-from django.core.files.base import ContentFile
+import json
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -17,6 +17,9 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import api_view, parser_classes
 from pydub import AudioSegment
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 
 from django.conf import settings
 
@@ -35,6 +38,7 @@ logger = logging.getLogger('activity_logger')
 @csrf_exempt
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
+@login_required
 def record_activity_api(request):
     if request.method == 'POST':
         # Log the start of the request
@@ -95,6 +99,8 @@ def record_activity_api(request):
 
     # If GET method is used, return a simple response (adjust as per your requirement)
     return JsonResponse({'message': 'GET method not supported for this endpoint'}, status=405)
+
+
 @api_view(['POST'])
 def signup(request):
     try:
@@ -122,3 +128,51 @@ def user_profile(request):
         profile.save()
         serializer = ProfileSerializer(profile)
         return Response(serializer.data)
+    
+
+@login_required
+@csrf_exempt
+def get_audio_files_for_date(request, date):
+    """
+    Fetch the list of audio files for the given date.
+    """
+    formatted_date = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m-%d')
+    date_folder_path = os.path.join(settings.MEDIA_ROOT, 'audio', formatted_date)
+
+    if not os.path.exists(date_folder_path):
+        return JsonResponse({'files': [], 'message': 'No files found for the selected date.'})
+
+    # List all .wav files in the folder
+    files = [f for f in os.listdir(date_folder_path) if f.endswith('.wav')]
+    return JsonResponse({'files': files, 'count': len(files)})
+
+@login_required
+@require_POST
+@csrf_exempt
+def delete_audio_file(request):
+    """
+    Delete a specific audio file.
+    """
+    try:
+        data = json.loads(request.body)  # Parse the JSON request body
+        file_name = data.get('file_name')
+        date = data.get('date')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    logger.info(f"Received request to delete file: {file_name} for date: {date}")
+    
+    if not file_name or not date:
+        return JsonResponse({'error': 'File name or date not provided'}, status=400)
+
+    # Format the date and construct the file path
+    formatted_date = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m-%d')
+    file_path = os.path.join(settings.MEDIA_ROOT, 'audio', formatted_date, file_name)
+
+    logger.info(f"Attempting to delete file: {file_path}")
+    
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return JsonResponse({'message': f'{file_name} deleted successfully'})
+    else:
+        return JsonResponse({'error': 'File not found'}, status=404)
