@@ -165,3 +165,6 @@ LOGGING = {
     },
 }
 
+#Uncomment if you want to limit the audio file size
+#DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
+

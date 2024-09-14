@@ -9,6 +9,7 @@ from django.core.files.base import ContentFile
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from django.core.files.uploadhandler import TemporaryFileUploadHandler
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
@@ -37,7 +38,10 @@ logger = logging.getLogger('activity_logger')
 def record_activity_api(request):
     if request.method == 'POST':
         # Log the start of the request
-        logger.info("Started processing record_activity request")
+        logger.info("Started processing record_activity request with streaming")
+
+        # Handle streaming uploads with TemporaryFileUploadHandler
+        request.upload_handlers.insert(0, TemporaryFileUploadHandler())
 
         # Get the selected date from the request
         selected_date = request.POST.get('date')
@@ -58,59 +62,39 @@ def record_activity_api(request):
         else:
             logger.info(f"Directory for date: {formatted_date} already exists")
 
-        # Handle base64 encoded audio data from React
-        audio_data = request.POST.get('audio_data')
-        if audio_data:
-            logger.info("Processing base64 encoded audio data")
-            try:
-                format, audio_str = audio_data.split(';base64,')  # Split the base64 string
-                audio_decoded = base64.b64decode(audio_str)  # Decode the base64 string
-                audio_segment = AudioSegment.from_file(BytesIO(audio_decoded))
-                audio_temp = BytesIO()
-                audio_segment.export(audio_temp, format="wav")  # Export to WAV
-
-                audio_file_name = f'audio_{formatted_date}_{datetime.now().strftime("%H-%M-%S")}.wav'
-                audio_content = ContentFile(audio_temp.getvalue())
-
-                # Create file path inside the date-based folder
-                file_path = os.path.join(date_folder_path, audio_file_name)
-                with open(file_path, 'wb') as f:
-                    f.write(audio_content.read())
-
-                logger.info(f"Audio file saved successfully at {file_path}")
-
-            except Exception as e:
-                logger.error(f"Error processing audio data: {str(e)}", exc_info=True)
-                return JsonResponse({'error': f"Error processing audio data: {str(e)}"}, status=400)
-
-        # Handle file upload from React and convert to .wav
+        # Handle file upload from React (streaming mode)
         if 'audio_file' in request.FILES:
             uploaded_audio = request.FILES['audio_file']
-            logger.info("Processing uploaded audio file")
-            
+
             try:
                 # Convert uploaded file to WAV format
+                logger.info("Processing uploaded audio file in streaming mode")
+
+                # If the uploaded file is already in WAV, this will handle it correctly; otherwise, convert to WAV
                 audio_segment = AudioSegment.from_file(uploaded_audio)
                 audio_temp = BytesIO()
                 audio_segment.export(audio_temp, format="wav")  # Convert to WAV
 
+                # Create a unique file name using the current time to avoid file name collisions
                 audio_file_name = f'audio_{formatted_date}_{datetime.now().strftime("%H-%M-%S")}.wav'
-                audio_content = ContentFile(audio_temp.getvalue())
 
                 # Save the uploaded file in the date-based folder in .wav format
                 file_path = os.path.join(date_folder_path, audio_file_name)
                 with open(file_path, 'wb') as f:
-                    f.write(audio_content.read())
+                    f.write(audio_temp.getvalue())  # Save the converted audio file as a .wav file
 
-                logger.info(f"Uploaded audio file successfully converted and saved at {file_path}")
+                logger.info(f"Uploaded and converted audio file successfully saved at {file_path}")
 
             except Exception as e:
+                # Log error and return JSON response
                 logger.error(f"Error processing uploaded audio file: {str(e)}", exc_info=True)
                 return JsonResponse({'error': f"Error converting audio: {str(e)}"}, status=400)
 
         logger.info("Successfully processed record_activity request")
         return JsonResponse({'message': 'Activity saved and converted to .wav successfully'})
 
+    # If GET method is used, return a simple response (adjust as per your requirement)
+    return JsonResponse({'message': 'GET method not supported for this endpoint'}, status=405)
 @api_view(['POST'])
 def signup(request):
     try:
