@@ -1,0 +1,9 @@
+django
+djangorestframework
+djangorestframework-simplejwt
+speechrecognition
+openai
+python-dateutil
+django-cors-headers
+python-dotenv
+pillow
