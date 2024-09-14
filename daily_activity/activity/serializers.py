@@ -1,11 +1,11 @@
 from rest_framework import serializers
-from .models import Activity
+from .models import DailyActivity
 from django.contrib.auth.models import User
 from .models import Profile
 
 class ActivitySerializer(serializers.ModelSerializer):
     class Meta:
-        model = Activity
+        model = DailyActivity
         fields = '__all__'
 
 class UserSerializer(serializers.ModelSerializer):
