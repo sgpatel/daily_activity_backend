@@ -7,6 +7,9 @@ from rest_framework import viewsets
 import json
 
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.core.files.uploadhandler import TemporaryFileUploadHandler
@@ -32,6 +35,12 @@ from .utility.utils import transcribe_audio, summarize_text
 class ActivityViewSet(viewsets.ModelViewSet):
     queryset = DailyActivity.objects.all()
     serializer_class = ActivitySerializer
+
+class ProtectedView(APIView):
+    permission_classes = [IsAuthenticated]  # Restrict access to authenticated users only
+
+    def get(self, request):
+        return Response({"message": "This is a protected view only for authenticated users."})
 
 logger = logging.getLogger('activity_logger')
 
@@ -117,11 +126,16 @@ def signup(request):
     
 @api_view(['GET', 'POST'])
 def user_profile(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'User not authenticated'}, status=401)
+    
+    profile, created = Profile.objects.get_or_create(user=request.user)
+
     if request.method == 'GET':
         profile = Profile.objects.get(user=request.user)
         serializer = ProfileSerializer(profile)
         return Response(serializer.data)
-
+    
     elif request.method == 'POST':
         profile = Profile.objects.get(user=request.user)
         profile.profile_photo = request.FILES.get('profile_photo')
@@ -130,12 +144,18 @@ def user_profile(request):
         return Response(serializer.data)
     
 
-@login_required
+#@login_required
+@permission_classes([IsAuthenticated])
 @csrf_exempt
+@api_view(['POST'])
 def get_audio_files_for_date(request, date):
     """
     Fetch the list of audio files for the given date.
     """
+    # if not request.user.is_authenticated:
+    #     return JsonResponse({'error': 'User not authenticated'}, status=401)
+    # Format the date and construct the folder path
+    logger.info(f"Received request for audio files for date: {date}")
     formatted_date = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m-%d')
     date_folder_path = os.path.join(settings.MEDIA_ROOT, 'audio', formatted_date)
 
@@ -146,13 +166,19 @@ def get_audio_files_for_date(request, date):
     files = [f for f in os.listdir(date_folder_path) if f.endswith('.wav')]
     return JsonResponse({'files': files, 'count': len(files)})
 
-@login_required
+#@login_required
+@permission_classes([IsAuthenticated])
 @require_POST
 @csrf_exempt
+@api_view(['POST'])
 def delete_audio_file(request):
     """
     Delete a specific audio file.
     """
+    # if not request.user.is_authenticated:
+    #     return JsonResponse({'error': 'User not authenticated'}, status=401)
+    
+    logger.info("Received request to delete audio file")
     try:
         data = json.loads(request.body)  # Parse the JSON request body
         file_name = data.get('file_name')
